@@ -3,12 +3,26 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "largeforgeai"
-version = "0.1.0"
-description = "Low-cost LLM training and deployment stack"
+name = "largeforge"
+version = "1.0.0"
+description = "Platform for training, fine-tuning, and deploying Large Language Models"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
+authors = [
+    {name = "LargeForgeAI Team", email = "team@largeforge.ai"}
+]
+keywords = ["llm", "machine-learning", "fine-tuning", "inference", "transformers"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "torch>=2.0.0",
     "transformers>=4.36.0",
@@ -24,33 +38,81 @@ dependencies = [
     "uvicorn>=0.24.0",
     "httpx>=0.25.0",
     "pydantic>=2.0.0",
+    "click>=8.0.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0.0",
 ]
 
 [project.optional-dependencies]
+vllm = [
+    "vllm>=0.2.0",
+]
+quantization = [
+    "autoawq>=0.1.0",
+    "auto-gptq>=0.5.0",
+]
+all = [
+    "largeforge[vllm,quantization]",
+    "sentence-transformers>=2.2.0",
+    "wandb>=0.15.0",
+]
 dev = [
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
     "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
+    "mypy>=1.0.0",
     "ruff>=0.1.0",
-]
-inference = [
-    "vllm>=0.2.0",
-    "autoawq>=0.1.0",
+    "black>=23.0.0",
+    "pre-commit>=3.0.0",
 ]
 
 [project.scripts]
-llm-train = "llm.training.cli:main"
-llm-router = "llm.router.app:run"
+largeforge = "largeforge.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/largeforgeai/largeforgeai"
+Documentation = "https://docs.largeforge.ai"
+Repository = "https://github.com/largeforgeai/largeforgeai"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["llm*"]
+include = ["largeforge*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+markers = [
+    "gpu: marks tests as requiring GPU",
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+]
+addopts = "-v --tb=short"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
 
 [tool.black]
 line-length = 100
 target-version = ["py310"]
 
-[tool.ruff]
-line-length = 100
-select = ["E", "F", "I", "N", "W"]
-ignore = ["E501"]
+[tool.coverage.run]
+source = ["largeforge"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
