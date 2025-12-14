@@ -150,7 +150,7 @@ def convert(
     elif from_format == "sharegpt" and to_format == "alpaca":
         converted = sharegpt_to_alpaca(data)
     elif to_format == "chat":
-        converted = to_chat_format(data, format_type=from_format)
+        converted = to_chat_format(data, format=from_format)
     else:
         raise click.ClickException(
             f"Conversion from {from_format} to {to_format} not supported"

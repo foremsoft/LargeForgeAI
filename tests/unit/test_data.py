@@ -252,23 +252,26 @@ class TestValidateDataset:
 
     def test_validate_alpaca(self, sample_alpaca_data):
         """Test validating with alpaca format."""
-        valid, errors = validate_dataset(sample_alpaca_data, "alpaca")
-        assert len(valid) == len(sample_alpaca_data)
+        results = validate_dataset(sample_alpaca_data, format="alpaca")
+        valid_count = sum(1 for r in results if r["valid"])
+        assert valid_count == len(sample_alpaca_data)
 
     def test_validate_sharegpt(self, sample_sharegpt_data):
         """Test validating with sharegpt format."""
-        valid, errors = validate_dataset(sample_sharegpt_data, "sharegpt")
-        assert len(valid) == len(sample_sharegpt_data)
+        results = validate_dataset(sample_sharegpt_data, format="sharegpt")
+        valid_count = sum(1 for r in results if r["valid"])
+        assert valid_count == len(sample_sharegpt_data)
 
     def test_validate_dpo(self, sample_dpo_data):
         """Test validating with dpo format."""
-        valid, errors = validate_dataset(sample_dpo_data, "dpo")
-        assert len(valid) == len(sample_dpo_data)
+        results = validate_dataset(sample_dpo_data, format="dpo")
+        valid_count = sum(1 for r in results if r["valid"])
+        assert valid_count == len(sample_dpo_data)
 
     def test_invalid_format(self, sample_alpaca_data):
         """Test invalid format raises error."""
         with pytest.raises(ValueError, match="Unknown format"):
-            validate_dataset(sample_alpaca_data, "invalid_format")
+            validate_dataset(sample_alpaca_data, format="invalid_format")
 
 
 class TestFormatConverter:

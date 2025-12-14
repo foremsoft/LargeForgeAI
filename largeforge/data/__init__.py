@@ -13,6 +13,7 @@ from largeforge.data.validators import (
     ShareGPTValidator,
     DPOValidator,
     validate_dataset,
+    detect_format,
 )
 from largeforge.data.converters import (
     FormatConverter,
@@ -40,6 +41,7 @@ __all__ = [
     "ShareGPTValidator",
     "DPOValidator",
     "validate_dataset",
+    "detect_format",
     # Converters
     "FormatConverter",
     "alpaca_to_sharegpt",

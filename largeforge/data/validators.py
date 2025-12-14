@@ -286,39 +286,84 @@ class DPOValidator(DataValidator):
         return errors
 
 
+def detect_format(data: List[Dict[str, Any]]) -> str:
+    """
+    Auto-detect the format of a dataset.
+
+    Args:
+        data: List of data records
+
+    Returns:
+        Detected format name ("alpaca", "sharegpt", or "dpo")
+
+    Example:
+        >>> format_type = detect_format(data)
+        >>> print(f"Detected format: {format_type}")
+    """
+    if not data:
+        return "alpaca"  # Default
+
+    # Check first record for format indicators
+    sample = data[0]
+
+    if "conversations" in sample:
+        return "sharegpt"
+    elif "chosen" in sample and "rejected" in sample:
+        return "dpo"
+    elif "instruction" in sample:
+        return "alpaca"
+    else:
+        return "alpaca"  # Default fallback
+
+
 def validate_dataset(
     data: List[Dict[str, Any]],
-    format: str,
+    format: str = None,
+    format_type: str = None,
     raise_on_error: bool = True,
     **kwargs,
-) -> Tuple[List[Dict[str, Any]], List[str]]:
+) -> List[Dict[str, Any]]:
     """
     Validate a dataset with the appropriate validator.
 
     Args:
         data: List of records to validate
         format: Data format ("alpaca", "sharegpt", "dpo")
+        format_type: Alias for format (for compatibility)
         raise_on_error: Whether to raise on validation failure
         **kwargs: Additional arguments for the validator
 
     Returns:
-        Tuple of (valid_records, errors)
+        List of dicts with {"valid": bool, "errors": list} for each record
 
     Example:
-        >>> valid_data, errors = validate_dataset(data, "alpaca")
-        >>> valid_data, errors = validate_dataset(
-        ...     data, "sharegpt", require_system=True
-        ... )
+        >>> results = validate_dataset(data, format="alpaca")
+        >>> results = validate_dataset(data, format_type="sharegpt")
     """
+    # Accept either format or format_type
+    fmt = format or format_type
+    if fmt is None:
+        fmt = detect_format(data)
+
     validators = {
         "alpaca": AlpacaValidator,
         "sharegpt": ShareGPTValidator,
         "dpo": DPOValidator,
     }
 
-    validator_class = validators.get(format.lower())
+    validator_class = validators.get(fmt.lower())
     if validator_class is None:
-        raise ValueError(f"Unknown format: {format}. Valid: {list(validators.keys())}")
+        raise ValueError(f"Unknown format: {fmt}. Valid: {list(validators.keys())}")
 
     validator = validator_class(**kwargs)
-    return validator.validate(data, raise_on_error=raise_on_error)
+
+    # Return per-record validation results
+    results = []
+    for i, record in enumerate(data):
+        errors = validator.validate_record(record, i)
+        results.append({
+            "valid": len(errors) == 0,
+            "errors": errors,
+        })
+
+    return results
