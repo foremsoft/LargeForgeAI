@@ -1,0 +1,5 @@
+base_model: Qwen/Qwen2.5-7B
+load_in_4bit: true
+adapter: lora
+lora_r: 8
+lora_alpha: 16
