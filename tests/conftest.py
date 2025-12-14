@@ -86,20 +86,43 @@ def mock_tokenizer():
     tokenizer.pad_token_id = 0
     tokenizer.eos_token_id = 2
     tokenizer.bos_token_id = 1
+    tokenizer.eos_token = "</s>"
     tokenizer.model_max_length = 2048
 
     def mock_encode(text, **kwargs):
-        return list(range(len(text.split())))
+        if isinstance(text, str):
+            return list(range(len(text.split())))
+        return list(range(5))
 
     def mock_decode(ids, **kwargs):
         return " ".join(["token"] * len(ids))
 
+    def mock_call(text, **kwargs):
+        ids = mock_encode(text)
+        return {
+            "input_ids": ids,
+            "attention_mask": [1] * len(ids),
+        }
+
     tokenizer.encode = mock_encode
     tokenizer.decode = mock_decode
-    tokenizer.__call__ = lambda text, **kwargs: {
-        "input_ids": mock_encode(text),
-        "attention_mask": [1] * len(mock_encode(text)),
-    }
+    tokenizer.side_effect = mock_call
+    tokenizer.return_value = mock_call("")
+
+    # Configure the mock to act like a callable that returns dict
+    tokenizer.configure_mock(**{
+        "return_value": {"input_ids": [0, 1, 2], "attention_mask": [1, 1, 1]},
+    })
+
+    # Override call behavior
+    def tokenizer_call(text, **kwargs):
+        ids = mock_encode(text)
+        return {
+            "input_ids": ids,
+            "attention_mask": [1] * len(ids),
+        }
+
+    tokenizer.side_effect = tokenizer_call
 
     return tokenizer
 
