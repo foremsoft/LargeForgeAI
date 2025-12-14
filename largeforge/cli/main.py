@@ -55,6 +55,13 @@ from largeforge.cli.train import sft, dpo
 from largeforge.cli.serve import start, generate
 from largeforge.cli.data import validate, convert, stats
 
+# Import new command groups
+from largeforge.cli.web import web
+from largeforge.cli.verify import verify
+from largeforge.cli.deploy import deploy
+from largeforge.cli.export import export
+from largeforge.cli.synthetic import synthetic
+
 # Register train subcommands
 train.add_command(sft)
 train.add_command(dpo)
@@ -67,6 +74,13 @@ serve.add_command(generate)
 data.add_command(validate)
 data.add_command(convert)
 data.add_command(stats)
+
+# Register new command groups
+cli.add_command(web)
+cli.add_command(verify)
+cli.add_command(deploy)
+cli.add_command(export)
+cli.add_command(synthetic)
 
 
 @cli.command()

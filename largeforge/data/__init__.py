@@ -27,6 +27,12 @@ from largeforge.data.generators import (
     create_sft_dataset,
     create_dpo_dataset,
 )
+from largeforge.data.synthetic import (
+    SyntheticConfig,
+    SyntheticGenerator,
+    generate_synthetic_data,
+    augment_dataset,
+)
 
 __all__ = [
     # Loaders
@@ -52,4 +58,9 @@ __all__ = [
     "DPODatasetGenerator",
     "create_sft_dataset",
     "create_dpo_dataset",
+    # Synthetic
+    "SyntheticConfig",
+    "SyntheticGenerator",
+    "generate_synthetic_data",
+    "augment_dataset",
 ]
