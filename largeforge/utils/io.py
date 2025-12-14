@@ -174,3 +174,46 @@ def write_text(path: PathLike, content: str) -> None:
     path = Path(path)
     ensure_dir(path.parent)
     path.write_text(content, encoding="utf-8")
+
+
+def load_yaml(path: PathLike) -> dict:
+    """
+    Load a YAML file.
+
+    Args:
+        path: Path to YAML file
+
+    Returns:
+        Parsed YAML data
+
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        ImportError: If PyYAML is not installed
+    """
+    try:
+        import yaml
+    except ImportError:
+        raise ImportError("PyYAML is required for YAML support. Install with: pip install pyyaml")
+
+    path = Path(path)
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+def save_yaml(data: Any, path: PathLike) -> None:
+    """
+    Save data to a YAML file.
+
+    Args:
+        data: Data to save
+        path: Output path
+    """
+    try:
+        import yaml
+    except ImportError:
+        raise ImportError("PyYAML is required for YAML support. Install with: pip install pyyaml")
+
+    path = Path(path)
+    ensure_dir(path.parent)
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
