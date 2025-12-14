@@ -1,7 +1,7 @@
 """Version information for LargeForgeAI."""
 
-__version__ = "1.0.0"
-VERSION_INFO = (1, 0, 0)
+__version__ = "2.0.0"
+VERSION_INFO = (2, 0, 0)
 
 
 def get_version() -> str:
