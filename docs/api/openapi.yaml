@@ -1,0 +1,982 @@
+openapi: 3.0.3
+info:
+  title: LargeForgeAI API
+  description: |
+    LargeForgeAI provides a comprehensive API for training, deploying, and serving
+    Large Language Models. This API is designed to be compatible with the OpenAI API
+    format while providing additional features for expert routing and model management.
+
+    ## Authentication
+
+    All API requests require authentication using an API key passed in the header:
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+
+    ## Rate Limiting
+
+    - Free tier: 60 requests/minute
+    - Pro tier: 600 requests/minute
+    - Enterprise: Custom limits
+
+    Rate limit headers are included in all responses:
+    - `X-RateLimit-Limit`: Maximum requests per window
+    - `X-RateLimit-Remaining`: Remaining requests in current window
+    - `X-RateLimit-Reset`: Unix timestamp when the window resets
+
+    ## Streaming
+
+    Streaming responses use Server-Sent Events (SSE). Set `stream: true` in your
+    request to receive incremental token generation.
+
+  version: 1.0.0
+  contact:
+    name: LargeForgeAI Team
+    url: https://github.com/largeforgeai/largeforgeai
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.largeforge.ai/v1
+    description: Production server
+
+tags:
+  - name: Completions
+    description: Text completion endpoints
+  - name: Chat
+    description: Chat completion endpoints
+  - name: Router
+    description: Expert routing endpoints
+  - name: Models
+    description: Model management endpoints
+  - name: Health
+    description: Health and monitoring endpoints
+  - name: Experts
+    description: Expert management endpoints
+
+paths:
+  /v1/completions:
+    post:
+      tags:
+        - Completions
+      summary: Create completion
+      description: |
+        Creates a completion for the provided prompt. Supports both streaming
+        and non-streaming responses.
+      operationId: createCompletion
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionRequest'
+            examples:
+              basic:
+                summary: Basic completion
+                value:
+                  model: "largeforge-7b"
+                  prompt: "Explain quantum computing in simple terms:"
+                  max_tokens: 256
+                  temperature: 0.7
+              streaming:
+                summary: Streaming completion
+                value:
+                  model: "largeforge-7b"
+                  prompt: "Write a haiku about programming:"
+                  max_tokens: 64
+                  stream: true
+      responses:
+        '200':
+          description: Successful completion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletionResponse'
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/CompletionStreamResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /v1/chat/completions:
+    post:
+      tags:
+        - Chat
+      summary: Create chat completion
+      description: |
+        Creates a completion for a chat conversation. Accepts a list of messages
+        and generates a response from the assistant.
+      operationId: createChatCompletion
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+            examples:
+              simple:
+                summary: Simple chat
+                value:
+                  model: "largeforge-7b"
+                  messages:
+                    - role: "user"
+                      content: "Hello, how are you?"
+                  max_tokens: 256
+              with_system:
+                summary: Chat with system prompt
+                value:
+                  model: "largeforge-7b"
+                  messages:
+                    - role: "system"
+                      content: "You are a helpful coding assistant."
+                    - role: "user"
+                      content: "Write a Python function to calculate factorial."
+                  max_tokens: 512
+                  temperature: 0.3
+      responses:
+        '200':
+          description: Successful chat completion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionResponse'
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionStreamResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /v1/models:
+    get:
+      tags:
+        - Models
+      summary: List models
+      description: Returns a list of available models
+      operationId: listModels
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/models/{model_id}:
+    get:
+      tags:
+        - Models
+      summary: Get model info
+      description: Returns information about a specific model
+      operationId: getModel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: model_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The model identifier
+      responses:
+        '200':
+          description: Model information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /route:
+    post:
+      tags:
+        - Router
+      summary: Route query to expert
+      description: |
+        Classifies a query and returns the recommended expert model to handle it.
+        Uses a hybrid classifier combining keyword and neural methods.
+      operationId: routeQuery
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteRequest'
+            examples:
+              code_query:
+                summary: Programming query
+                value:
+                  query: "How do I implement a binary search tree in Python?"
+              writing_query:
+                summary: Writing query
+                value:
+                  query: "Help me write a marketing email for our new product launch"
+      responses:
+        '200':
+          description: Routing decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /generate:
+    post:
+      tags:
+        - Router
+      summary: Route and generate
+      description: |
+        Routes a query to the appropriate expert and generates a response.
+        Combines routing and inference in a single request.
+      operationId: routeAndGenerate
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+      responses:
+        '200':
+          description: Generated response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/GenerateStreamResponse'
+
+  /experts:
+    get:
+      tags:
+        - Experts
+      summary: List experts
+      description: Returns a list of registered expert models
+      operationId: listExperts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: domain
+          in: query
+          schema:
+            type: string
+          description: Filter by domain
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, all]
+            default: active
+          description: Filter by status
+      responses:
+        '200':
+          description: List of experts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpertList'
+
+    post:
+      tags:
+        - Experts
+      summary: Register expert
+      description: Registers a new expert model
+      operationId: registerExpert
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpertConfig'
+      responses:
+        '201':
+          description: Expert registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expert'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Expert already exists
+
+  /experts/{expert_name}:
+    get:
+      tags:
+        - Experts
+      summary: Get expert info
+      description: Returns information about a specific expert
+      operationId: getExpert
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: expert_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Expert information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expert'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Experts
+      summary: Remove expert
+      description: Removes an expert from the registry
+      operationId: removeExpert
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: expert_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Expert removed
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the health status of the service
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: Returns whether the service is ready to accept requests
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service is ready
+        '503':
+          description: Service is not ready
+
+  /health/live:
+    get:
+      tags:
+        - Health
+      summary: Liveness check
+      description: Returns whether the service is alive
+      operationId: livenessCheck
+      responses:
+        '200':
+          description: Service is alive
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics
+      description: Returns Prometheus-compatible metrics
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP inference_requests_total Total inference requests
+                  # TYPE inference_requests_total counter
+                  inference_requests_total{model="largeforge-7b",status="success"} 1234
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+
+  schemas:
+    CompletionRequest:
+      type: object
+      required:
+        - model
+        - prompt
+      properties:
+        model:
+          type: string
+          description: Model ID to use
+          example: "largeforge-7b"
+        prompt:
+          type: string
+          description: The prompt to complete
+          example: "Once upon a time"
+        max_tokens:
+          type: integer
+          minimum: 1
+          maximum: 4096
+          default: 256
+          description: Maximum tokens to generate
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 0.7
+          description: Sampling temperature
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.9
+          description: Nucleus sampling probability
+        top_k:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+          description: Top-k sampling
+        stop:
+          type: array
+          items:
+            type: string
+          maxItems: 4
+          description: Stop sequences
+        stream:
+          type: boolean
+          default: false
+          description: Enable streaming response
+        presence_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+        user:
+          type: string
+          description: Unique user identifier for tracking
+
+    CompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "cmpl-abc123"
+        object:
+          type: string
+          enum: [text_completion]
+        created:
+          type: integer
+          description: Unix timestamp
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompletionChoice'
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    CompletionChoice:
+      type: object
+      properties:
+        index:
+          type: integer
+        text:
+          type: string
+        finish_reason:
+          type: string
+          enum: [stop, length, content_filter]
+
+    CompletionStreamResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          enum: [text_completion.chunk]
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              text:
+                type: string
+              finish_reason:
+                type: string
+                nullable: true
+
+    ChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+          example: "largeforge-7b"
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          minItems: 1
+        max_tokens:
+          type: integer
+          minimum: 1
+          maximum: 4096
+          default: 256
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 0.7
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.9
+        stream:
+          type: boolean
+          default: false
+        stop:
+          type: array
+          items:
+            type: string
+          maxItems: 4
+        presence_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          default: 0
+
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant]
+        content:
+          type: string
+
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "chatcmpl-abc123"
+        object:
+          type: string
+          enum: [chat.completion]
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatChoice'
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    ChatChoice:
+      type: object
+      properties:
+        index:
+          type: integer
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+        finish_reason:
+          type: string
+          enum: [stop, length, content_filter]
+
+    ChatCompletionStreamResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          enum: [chat.completion.chunk]
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              delta:
+                type: object
+                properties:
+                  role:
+                    type: string
+                  content:
+                    type: string
+              finish_reason:
+                type: string
+                nullable: true
+
+    Usage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+
+    RouteRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: The query to route
+        context:
+          type: object
+          additionalProperties: true
+          description: Additional context for routing
+        prefer_expert:
+          type: string
+          description: Preferred expert (hint)
+
+    RouteResponse:
+      type: object
+      properties:
+        expert:
+          type: string
+          description: Selected expert name
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Routing confidence score
+        alternatives:
+          type: array
+          items:
+            type: object
+            properties:
+              expert:
+                type: string
+              confidence:
+                type: number
+
+    GenerateRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+        max_tokens:
+          type: integer
+          default: 256
+        temperature:
+          type: number
+          default: 0.7
+        stream:
+          type: boolean
+          default: false
+        prefer_expert:
+          type: string
+
+    GenerateResponse:
+      type: object
+      properties:
+        expert:
+          type: string
+        confidence:
+          type: number
+        response:
+          type: string
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    GenerateStreamResponse:
+      type: object
+      properties:
+        expert:
+          type: string
+        chunk:
+          type: string
+        finish_reason:
+          type: string
+          nullable: true
+
+    Model:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          enum: [model]
+        created:
+          type: integer
+        owned_by:
+          type: string
+        permission:
+          type: array
+          items:
+            type: object
+        root:
+          type: string
+        parent:
+          type: string
+          nullable: true
+
+    ModelList:
+      type: object
+      properties:
+        object:
+          type: string
+          enum: [list]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Model'
+
+    ExpertConfig:
+      type: object
+      required:
+        - name
+        - model_path
+        - description
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          example: "code-expert"
+        model_path:
+          type: string
+          example: "./models/code-expert"
+        description:
+          type: string
+          example: "Specialized in code generation"
+        domains:
+          type: array
+          items:
+            type: string
+          example: ["programming", "debugging"]
+        keywords:
+          type: array
+          items:
+            type: string
+          example: ["code", "function", "debug"]
+        endpoint:
+          type: string
+          format: uri
+          example: "http://localhost:8001"
+        priority:
+          type: integer
+          default: 0
+
+    Expert:
+      allOf:
+        - $ref: '#/components/schemas/ExpertConfig'
+        - type: object
+          properties:
+            status:
+              type: string
+              enum: [active, inactive, loading, error]
+            load:
+              type: number
+              minimum: 0
+              maximum: 1
+            request_count:
+              type: integer
+            avg_latency_ms:
+              type: number
+
+    ExpertList:
+      type: object
+      properties:
+        experts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Expert'
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        version:
+          type: string
+        uptime_seconds:
+          type: integer
+        components:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+              latency_ms:
+                type: number
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            type:
+              type: string
+            param:
+              type: string
+              nullable: true
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "invalid_request"
+              message: "Invalid request body"
+              type: "invalid_request_error"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "authentication_failed"
+              message: "Invalid or missing API key"
+              type: "authentication_error"
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "not_found"
+              message: "The requested resource was not found"
+              type: "not_found_error"
+
+    RateLimited:
+      description: Rate limited
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "rate_limited"
+              message: "Rate limit exceeded. Please retry after 60 seconds."
+              type: "rate_limit_error"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: "internal_error"
+              message: "An internal error occurred"
+              type: "internal_error"
